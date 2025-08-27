@@ -1,28 +1,33 @@
-// ──────────────────────────────────────────────────────────────────────────────
-// src/App.jsx  (your original single-file app moved here unchanged except minor tweaks)
-// ──────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { UploadCloud, FileText, MessageSquareHeart, ArrowLeft, SendHorizonal, Trash2, ExternalLink, Sun, Moon, Sparkles } from "lucide-react";
+import {
+  UploadCloud,
+  FileText,
+  MessageSquareHeart,
+  ArrowLeft,
+  Trash2,
+  ExternalLink,
+  Sun,
+  Moon,
+  SendHorizontal,
+} from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 
-const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo"; // used for message scoping
+const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo";
 const PERSON = {
-  fullName: " Liewe Ruan",
-  sunset: "2025-08-18",
+  fullName: import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Johnathan M. Dlamini",
+  sunrise: import.meta.env.VITE_PERSON_SUNRISE || "1952-03-14",
+  sunset:  import.meta.env.VITE_PERSON_SUNSET  || "2025-08-18",
   heroImage:
+    import.meta.env.VITE_PERSON_PHOTO ||
     "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?q=80&w=1600&auto=format&fit=crop",
 };
-
 const BRAND = { accent: import.meta.env.VITE_BRAND_ACCENT || "#143427" };
-
 const LINKS = {
   GOOGLE_PHOTOS_URL: import.meta.env.VITE_GOOGLE_PHOTOS_URL || "https://photos.app.goo.gl/your-shared-album-link",
-  PAMPHLET_PDF_URL: import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-cdn-or-drive-link/program.pdf",
+  PAMPHLET_PDF_URL: import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-public-pdf-link.pdf",
 };
-
-// Supabase (optional but recommended for shared messages)
 const SUPABASE = {
   url: import.meta.env.VITE_SUPABASE_URL || "",
   anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
@@ -30,13 +35,11 @@ const SUPABASE = {
 };
 const supabase = SUPABASE.url && SUPABASE.anonKey ? createClient(SUPABASE.url, SUPABASE.anonKey) : null;
 
+// =====================
 // Utilities
-const fmtDate = (iso) => {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  } catch { return iso; }
-};
+// =====================
+
+// Hash router (works great on GitHub Pages)
 const useHashRoute = () => {
   const [route, setRoute] = useState(() => window.location.hash.replace("#", "") || "/");
   useEffect(() => {
@@ -47,47 +50,135 @@ const useHashRoute = () => {
   const navigate = (path) => { window.location.hash = path; };
   return { route, navigate };
 };
+
 const storageKey = (suffix) => `${EVENT_ID}:${suffix}`;
 
-// Sunrise/Sunset ribbon
-const SunriseSunset = () => (
-  <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-3">
-    <div className="mb-2 flex items-center gap-3 text-xs font-medium text-gray-700">
-      <span className="inline-flex items-center gap-1"><Sun className="h-4 w-4" style={{ color: BRAND.accent }} /> Sunrise:</span>
-      <span>{fmtDate(PERSON.sunrise)}</span>
-      <span className="mx-2 text-gray-300">•</span>
-      <span className="inline-flex items-center gap-1"><Moon className="h-4 w-4" style={{ color: BRAND.accent }} /> Sunset:</span>
-      <span>{fmtDate(PERSON.sunset)}</span>
-    </div>
-    <div className="relative h-2 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${BRAND.accent}22, ${BRAND.accent}44, ${BRAND.accent}22)` }}>
-      <motion.div className="absolute -top-1 h-4 w-4 rounded-full shadow" style={{ backgroundColor: BRAND.accent }} animate={{ x: [0, 'calc(100% - 16px)', 0] }} transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }} />
-    </div>
-    <motion.div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full" style={{ backgroundColor: `${BRAND.accent}0f` }} animate={{ rotate: [0, 10, 0] }} transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
-  </div>
-);
+// Robust parsing: accepts ISO (YYYY-MM-DD) or DD/MM/YYYY or DD-MM-YYYY
+const parseMaybeDate = (raw) => {
+  if (!raw) return null;
+  const d1 = new Date(raw);
+  if (!isNaN(d1)) return d1;
+  const m = String(raw).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (m) {
+    const [, dd, mm, yy] = m;
+    const yyyy = yy.length === 2 ? (Number(yy) > 50 ? `19${yy}` : `20${yy}`) : yy;
+    const d2 = new Date(`${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`);
+    if (!isNaN(d2)) return d2;
+  }
+  return null;
+};
+const fmtMemorialDate = (raw) => {
+  const d = parseMaybeDate(raw);
+  return d
+    ? d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+    : "—";
+};
 
+// =====================
+// UI: Sunrise/Sunset ribbon (animated & responsive)
+// =====================
+const SunriseSunset = () => {
+  const sunrise = fmtMemorialDate(PERSON.sunrise);
+  const sunset  = fmtMemorialDate(PERSON.sunset);
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white/90 p-3">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-gray-700">
+        <span className="inline-flex items-center gap-1">
+          <Sun className="h-4 w-4" style={{ color: BRAND.accent }} /> Sunrise:
+        </span>
+        <span>{sunrise}</span>
+        <span className="hidden h-1 w-1 rounded-full bg-gray-300 sm:inline-block" />
+        <span className="inline-flex items-center gap-1">
+          <Moon className="h-4 w-4" style={{ color: BRAND.accent }} /> Sunset:
+        </span>
+        <span>{sunset}</span>
+      </div>
+
+      <div
+        className="relative h-2 w-full rounded-full sm:h-2"
+        style={{ background: `linear-gradient(90deg, ${BRAND.accent}22, ${BRAND.accent}44, ${BRAND.accent}22)` }}
+      >
+        {/* Sun */}
+        <motion.div
+          aria-hidden
+          className="absolute -top-1 h-4 w-4 rounded-full shadow sm:h-5 sm:w-5"
+          style={{ backgroundColor: BRAND.accent }}
+          animate={{ x: [0, 'calc(100% - 1.25rem)', 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        {/* Moon (soft, trailing) */}
+        <motion.div
+          aria-hidden
+          className="absolute -top-1 h-4 w-4 rounded-full opacity-30 ring-1 ring-inset ring-black/10 sm:h-5 sm:w-5"
+          style={{ background: 'linear-gradient(135deg,#fff,#f2f4f8)' }}
+          animate={{ x: ['10%', 'calc(100% - 0.25rem)', '10%'] }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+
+      {/* Desktop-only soft accents */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-10 hidden h-28 w-28 rounded-full sm:block"
+        style={{ backgroundColor: `${BRAND.accent}14` }}
+        animate={{ rotate: [0, 12, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-2 hidden items-center gap-1 sm:flex"
+        initial={{ opacity: 0.0 }}
+        animate={{ opacity: [0.0, 0.4, 0.0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', times: [0.3, 0.7, 1] }}
+      >
+        <span className="h-1 w-1 rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+        <span className="h-1 w-1 rounded-full bg-white/70 shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
+        <span className="h-1 w-1 rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
+      </motion.div>
+    </div>
+  );
+};
+
+// =====================
 // Shell
+// =====================
 const Shell = ({ children, onBack }) => (
   <div className="min-h-screen bg-gray-50 text-gray-900">
     <header className="relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20" style={{ background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)` }} />
+      <div
+        className="absolute inset-0 opacity-20"
+        style={{
+          background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`
+        }}
+      />
       <div className="mx-auto max-w-5xl px-4 pt-8 pb-4">
         {onBack ? (
-          <button onClick={onBack} className="mb-6 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50">
-            <span className="i"><ArrowLeft className="h-4 w-4" /></span> Back
+          <button
+            onClick={onBack}
+            className="mb-6 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
         ) : null}
         <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-end md:justify-between md:text-left">
           <div className="flex-1">
             <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-              <span className="bg-clip-text text-transparent drop-shadow-sm" style={{ backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)` }}>
+              <span
+                className="bg-clip-text text-transparent drop-shadow-sm"
+                style={{ backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)` }}
+              >
                 {PERSON.fullName}
               </span>
             </h1>
             <div className="mt-4"><SunriseSunset /></div>
           </div>
           {PERSON.heroImage ? (
-            <img src={PERSON.heroImage} alt="Memorial hero" className="h-28 w-28 rounded-2xl object-cover shadow md:h-32 md:w-32" />
+            <img
+              src={PERSON.heroImage}
+              alt="Memorial hero"
+              className="h-28 w-28 rounded-2xl object-cover shadow md:h-32 md:w-32"
+            />
           ) : null}
         </div>
       </div>
@@ -101,10 +192,17 @@ const Shell = ({ children, onBack }) => (
   </div>
 );
 
-// Home
+// =====================
+// Screens
+// =====================
 const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
   const Card = ({ icon: Icon, title, body, cta, onClick }) => (
-    <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} onClick={onClick} className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md">
+    <motion.button
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md"
+    >
       <div className="flex items-center gap-3">
         <div className="rounded-xl p-2" style={{ backgroundColor: `${BRAND.accent}10` }}>
           <Icon className="h-6 w-6" style={{ color: BRAND.accent }} />
@@ -121,38 +219,62 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
   return (
     <Shell>
       <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-        <Card icon={UploadCloud} title="Upload Photos" body="Contribute your treasured photos to the shared family album." cta="Open Google Photos" onClick={onOpenPhotos} />
-        <Card icon={FileText} title="View the Digital Pamphlet" body="Open the memorial pamphlet as a PDF to read or download." cta="Open pamphlet" onClick={onOpenPamphlet} />
-        <Card icon={MessageSquareHeart} title="Share & Read Messages" body="Leave a message of love and remembrance, and read messages from others." cta="Open message wall" onClick={onOpenMemories} />
+        <Card
+          icon={UploadCloud}
+          title="Upload Photos"
+          body="Contribute your treasured photos to the shared family album."
+          cta="Open Google Photos"
+          onClick={onOpenPhotos}
+        />
+        <Card
+          icon={FileText}
+          title="View the Digital Pamphlet"
+          body="Open the memorial pamphlet as a PDF to read or download."
+          cta="Open pamphlet"
+          onClick={onOpenPamphlet}
+        />
+        <Card
+          icon={MessageSquareHeart}
+          title="Share & Read Messages"
+          body="Leave a message of love and remembrance, and read messages from others."
+          cta="Open message wall"
+          onClick={onOpenMemories}
+        />
       </section>
       <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6">
         <h2 className="text-base font-semibold text-gray-800">About this page</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-600">Thank you for being here. This memorial space is a simple way to share photos, view the digital pamphlet, and post your personal tributes. Your presence and words are deeply appreciated by the family.</p>
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          Thank you for being here. This memorial space is a simple way to share photos, view the digital pamphlet,
+          and post your personal tributes. Your presence and words are deeply appreciated by the family.
+        </p>
       </section>
     </Shell>
   );
 };
 
-// Pamphlet
 const Pamphlet = ({ onBack }) => {
   const url = LINKS.PAMPHLET_PDF_URL;
   return (
     <Shell onBack={onBack}>
       <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
-        {!url || url.includes("your-cdn-or-drive-link") ? (
+        {!url || /your-public-pdf-link\.pdf/i.test(url) ? (
           <div className="p-6 text-sm text-yellow-700">
             <p className="font-medium">No PDF URL configured.</p>
-            <p className="mt-1">Please set <code>LINKS.PAMPHLET_PDF_URL</code> to a valid public PDF link.</p>
+            <p className="mt-1">Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public PDF link.</p>
           </div>
         ) : (
-          <iframe title="Memorial Pamphlet" src={`${url}#view=FitH&scrollbar=1&toolbar=1`} className="h-[78vh] w-full rounded-xl border" />
+          <iframe
+            title="Memorial Pamphlet"
+            src={`${url}#view=FitH&scrollbar=1&toolbar=1`}
+            className="h-[78vh] w-full rounded-xl border"
+          />
         )}
       </section>
     </Shell>
   );
 };
 
-// Memories (Supabase realtime or localStorage fallback)
+// Supabase realtime or localStorage fallback
 const Memories = ({ onBack }) => {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -178,10 +300,13 @@ const Memories = ({ onBack }) => {
     if (usingSupabase) {
       const channel = supabase
         .channel(`messages-${EVENT_ID}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: SUPABASE.table, filter: `event_id=eq.${EVENT_ID}` }, (payload) => {
-          const row = payload.new;
-          setItems((prev) => [{ id: row.id, name: row.name, text: row.text, created_at: row.created_at }, ...prev]);
-        })
+        .on("postgres_changes",
+          { event: "INSERT", schema: "public", table: SUPABASE.table, filter: `event_id=eq.${EVENT_ID}` },
+          (payload) => {
+            const row = payload.new;
+            setItems((prev) => [{ id: row.id, name: row.name, text: row.text, created_at: row.created_at }, ...prev]);
+          }
+        )
         .subscribe();
       return () => supabase.removeChannel(channel);
     }
@@ -202,7 +327,6 @@ const Memories = ({ onBack }) => {
       const optimistic = [{ id: crypto.randomUUID(), name: entry.name, text: entry.text, created_at: new Date().toISOString() }, ...items];
       saveLocal(optimistic);
     }
-
     setMessage("");
   };
 
@@ -213,7 +337,7 @@ const Memories = ({ onBack }) => {
     <Shell onBack={onBack}>
       {usingSupabase ? null : (
         <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Shared messages are not yet configured. Add your Supabase URL & anon key in the config to enable global messages.
+          Shared messages are not yet configured. Add your Supabase URL & anon key in your .env to enable global messages.
         </div>
       )}
       <section className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -224,18 +348,39 @@ const Memories = ({ onBack }) => {
             <form onSubmit={onSubmit} className="mt-4 space-y-3">
               <div>
                 <label className="text-sm text-gray-700">Your name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Aunt Lindiwe" className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none" maxLength={60} required />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g., Aunt Lindiwe"
+                  className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none"
+                  maxLength={60}
+                  required
+                />
               </div>
               <div>
                 <label className="text-sm text-gray-700">Message</label>
-                <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write a memory, tribute, or message of support..." className="mt-1 h-32 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none" maxLength={800} required />
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Write a memory, tribute, or message of support..."
+                  className="mt-1 h-32 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none"
+                  maxLength={800}
+                  required
+                />
                 <div className="mt-1 text-right text-xs text-gray-500">{message.length}/800</div>
               </div>
-              <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2 font-medium text-white hover:bg-black">
-                <SendHorizonal className="h-4 w-4" /> Post message
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2 font-medium text-white hover:bg-black"
+              >
+                <SendHorizontal className="h-4 w-4" /> Post message
               </button>
               {!usingSupabase && (
-                <button type="button" onClick={onClearLocal} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={onClearLocal}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
                   <Trash2 className="h-4 w-4" /> Clear (this device only)
                 </button>
               )}
@@ -257,7 +402,9 @@ const Memories = ({ onBack }) => {
                   <li key={m.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <p className="font-medium text-gray-800">{m.name}</p>
-                      <time className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString()}</time>
+                      <time className="text-xs text-gray-500">
+                        {new Date(m.created_at).toLocaleString()}
+                      </time>
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-gray-700">{m.text}</p>
                   </li>
@@ -271,18 +418,30 @@ const Memories = ({ onBack }) => {
   );
 };
 
+// =====================
 // App (Router)
+// =====================
 export default function App() {
   const { route, navigate } = useHashRoute();
   const goHome = () => navigate("/");
   const openPhotos = () => {
     const url = LINKS.GOOGLE_PHOTOS_URL;
-    if (!url || url.includes("your-shared-album-link")) { alert("No Google Photos link configured yet. Please set LINKS.GOOGLE_PHOTOS_URL."); return; }
+    if (!url || /photos\.app\.goo\.gl\/your-shared-album-link/i.test(url)) {
+      alert("No Google Photos link configured yet. Please set VITE_GOOGLE_PHOTOS_URL.");
+      return;
+    }
     window.open(url, "_blank", "noopener,noreferrer");
   };
+
   return (
     <div className="font-sans">
-      {route === "/" && (<Home onOpenPhotos={openPhotos} onOpenPamphlet={() => navigate("/pamphlet")} onOpenMemories={() => navigate("/memories")} />)}
+      {route === "/" && (
+        <Home
+          onOpenPhotos={openPhotos}
+          onOpenPamphlet={() => navigate("/pamphlet")}
+          onOpenMemories={() => navigate("/memories")}
+        />
+      )}
       {route === "/pamphlet" && <Pamphlet onBack={goHome} />}
       {route === "/memories" && <Memories onBack={goHome} />}
     </div>
