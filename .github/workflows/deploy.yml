@@ -28,7 +28,7 @@ jobs:
           cache: npm
 
       - name: Install deps
-        run: npm ci
+        run:  npm install --no-audit --no-fund
 
       # Create .env for the Vite build from repo Secrets/Variables
       - name: Create .env
