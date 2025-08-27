@@ -1,0 +1,77 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]   # change if your default branch is different
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # Create .env for the Vite build from repo Secrets/Variables
+      - name: Create .env
+        run: |
+          cat > .env <<'EOF'
+          # Base path for GH Pages (must match your repo name exactly)
+          VITE_BASE=${{ vars.VITE_BASE || '/FuneralService/' }}
+
+          # Branding & links (safe to be Variables; secrets also fine)
+          VITE_EVENT_ID=${{ vars.VITE_EVENT_ID || 'memorial-2025-demo' }}
+          VITE_BRAND_ACCENT=${{ vars.VITE_BRAND_ACCENT || '#143427' }}
+          VITE_GOOGLE_PHOTOS_URL=${{ vars.VITE_GOOGLE_PHOTOS_URL || '' }}
+          VITE_PAMPHLET_PDF_URL=${{ vars.VITE_PAMPHLET_PDF_URL || '' }}
+
+          # Person (dates can be YYYY-MM-DD or DD/MM/YYYY)
+          VITE_PERSON_NAME=${{ vars.VITE_PERSON_NAME || 'In Loving Memory' }}
+          VITE_PERSON_SUNRISE=${{ vars.VITE_PERSON_SUNRISE || '' }}
+          VITE_PERSON_SUNSET=${{ vars.VITE_PERSON_SUNSET || '' }}
+          VITE_PERSON_PHOTO=${{ vars.VITE_PERSON_PHOTO || '' }}
+
+          # Supabase (use Secrets)
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_TABLE=${{ vars.VITE_SUPABASE_TABLE || 'messages' }}
+          EOF
+          echo "Created .env:"
+          cat .env
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
