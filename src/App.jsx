@@ -1,22 +1,22 @@
-import React, { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   UploadCloud,
   FileText,
- MessageSquareHeart,
- ArrowLeft,
-Trash2,
- ExternalLink,
- SendHorizontal,
+  MessageSquareHeart,
+  ArrowLeft,
+  Trash2,
+  ExternalLink,
+  SendHorizontal,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /**
  * Funeral Splash App (Vite + React + Tailwind)
- * - Splash with 3 options: Google Photos, PDF Pamphlet, Shared Messages
- * - Centered large hero image on Home; animated sunrise/sunset ribbon
- * - Supabase-backed message wall with realtime (fallback to localStorage)
- * - Toast on successful post; robust date parsing; GH Pages–safe hash routing
+ * - Home: hero background image with title & dates, 3 action cards below
+ * - Pamphlet & Messages pages keep compact header
+ * - Supabase realtime (fallback to localStorage)
+ * - Toast on successful post; GH Pages–safe hash routing
  */
 
 // =====================
@@ -24,18 +24,21 @@ import { createClient } from "@supabase/supabase-js";
 // =====================
 const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo";
 const PERSON = {
-  fullName: import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Johnathan M. Dlamini",
+  fullName:
+    import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Johnathan M. Dlamini",
   sunrise: import.meta.env.VITE_PERSON_SUNRISE || "1952-03-14",
   sunset: import.meta.env.VITE_PERSON_SUNSET || "2025-08-18",
+  // Use env override, else local /public/Ruan.jpg (BASE_URL keeps GH Pages path correct)
   heroImage:
-    import.meta.env.VITE_PERSON_PHOTO ||
-    "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?q=80&w=1600&auto=format&fit=crop",
+    import.meta.env.VITE_PERSON_PHOTO || `${import.meta.env.BASE_URL}Ruan.jpg`,
 };
 const BRAND = { accent: import.meta.env.VITE_BRAND_ACCENT || "#143427" };
 const LINKS = {
   GOOGLE_PHOTOS_URL:
-    import.meta.env.VITE_GOOGLE_PHOTOS_URL || "https://photos.app.goo.gl/your-shared-album-link",
-  PAMPHLET_PDF_URL: import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-public-pdf-link.pdf",
+    import.meta.env.VITE_GOOGLE_PHOTOS_URL ||
+    "https://photos.app.goo.gl/your-shared-album-link",
+  PAMPHLET_PDF_URL:
+    import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-public-pdf-link.pdf",
 };
 const SUPABASE = {
   url: import.meta.env.VITE_SUPABASE_URL || "",
@@ -48,24 +51,21 @@ const supabase =
 // =====================
 // Utilities
 // =====================
-
-// Hash router (works great on GitHub Pages)
 const useHashRoute = () => {
-  const [route, setRoute] = useState(() => window.location.hash.replace("#", "") || "/");
+  const [route, setRoute] = useState(
+    () => window.location.hash.replace("#", "") || "/"
+  );
   useEffect(() => {
     const onHash = () => setRoute(window.location.hash.replace("#", "") || "/");
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  const navigate = (path) => {
-    window.location.hash = path;
-  };
+  const navigate = (path) => (window.location.hash = path);
   return { route, navigate };
 };
 
 const storageKey = (suffix) => `${EVENT_ID}:${suffix}`;
 
-// Robust parsing: accepts ISO (YYYY-MM-DD) or DD/MM/YYYY or DD-MM-YYYY
 const parseMaybeDate = (raw) => {
   if (!raw) return null;
   const d1 = new Date(raw);
@@ -82,7 +82,11 @@ const parseMaybeDate = (raw) => {
 const fmtMemorialDate = (raw) => {
   const d = parseMaybeDate(raw);
   return d
-    ? d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+    ? d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : "—";
 };
 
@@ -105,117 +109,79 @@ const Toast = ({ message }) => (
 );
 
 // =====================
-// UI: Sunrise/Sunset ribbon (animated & responsive)
+// Shell (supports centered hero)
 // =====================
-const SunriseSunset = () => {
+const Shell = ({ children, onBack, centerHero = false }) => {
   const sunrise = fmtMemorialDate(PERSON.sunrise);
-  const sunset  = fmtMemorialDate(PERSON.sunset);
-
-  // Prefer env URL; otherwise use local asset in /public
-  const gifSrc =
-    import.meta.env.VITE_RIBBON_GIF_URL ||
-    `${import.meta.env.BASE_URL}Fish.gif`; // BASE_URL handles GitHub Pages base path
-  const alt = import.meta.env.VITE_RIBBON_GIF_ALT || "Memorial banner";
+  const sunset = fmtMemorialDate(PERSON.sunset);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white/90">
-      {/* GIF banner */}
-      <figure className="relative aspect-[16/6] w-full sm:aspect-[16/5] md:aspect-[16/4]">
-        <img
-          src={gifSrc}
-          alt={alt}
-          loading="lazy"
-          className=" w-full object-cover"
-          style={{ objectPosition: "center 40%" }} // tweak framing if needed
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <header className="relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-20 pointer-events-none"
+          style={{
+            background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`,
+          }}
         />
-        {/* Overlay chip with dates */}
-        <figcaption className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur sm:text-xs">
-          <span className="opacity-80">Sunrise:</span> {sunrise}
-          <span className="mx-2 hidden text-gray-300 sm:inline"> • </span>
-          <span className="opacity-80">Sunset:</span> {sunset}
-        </figcaption>
-      </figure>
-    </div>
-  );
-};
+        {/* widened header container */}
+        <div className="relative z-10 mx-auto max-w-6xl px-4 pt-8 pb-6">
+          {onBack ? (
+            <button
+              onClick={onBack}
+              className="mb-6 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+          ) : null}
 
-// =====================
-// Shell (now supports centered hero header)
-// =====================
-const Shell = ({ children, onBack, centerHero = false }) => (
-  <div className="min-h-screen bg-gray-50 text-gray-900">
-    <header className="relative overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`,
-        }}
-      />
-      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-8 pb-6">
-        {onBack ? (
-          <button
-            onClick={onBack}
-            className="mb-6 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-        ) : null}
-
-        {centerHero ? (
-          <div className="flex flex-col items-center text-center">
-            {PERSON.heroImage ? (
-              <img
-                src={PERSON.heroImage}
-                alt="Memorial portrait"
-                className="h-40 w-40 rounded-3xl object-cover shadow-lg md:h-56 md:w-56"
+          {centerHero ? (
+            // Hero: background image with overlay + centered content
+            <div className="relative overflow-hidden rounded-3xl shadow-lg">
+              <div
+                className="h-[220px] w-full bg-cover bg-top sm:h-[260px] md:h-[620px]"
+                style={{ backgroundImage: `url(${PERSON.heroImage})` }}
               />
-            ) : null}
-            <h1 className="mt-6 text-4xl font-extrabold tracking-tight md:text-5xl">
-              <span
-                className="bg-clip-text text-transparent drop-shadow-sm"
-                style={{ backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)` }}
-              >
-                {PERSON.fullName}
-              </span>
-            </h1>
-            <div className="mt-4 w-full max-w-xl">
-              <SunriseSunset />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/40" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                <h1 className="text-4xl font-extrabold tracking-tight text-white drop-shadow md:text-5xl">
+                  {PERSON.fullName}
+                </h1>
+                <div className="mt-3 rounded-full bg-white/85 px-3 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur sm:text-xs">
+                  <span className="opacity-80">Sunrise:</span> {sunrise}
+                  <span className="mx-2 hidden text-gray-300 sm:inline">•</span>
+                  <span className="opacity-80">Sunset:</span> {sunset}
+                </div>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-end md:justify-between md:text-left">
-            <div className="flex-1">
+          ) : (
+            // Compact header used on inner pages
+            <div className="flex flex-col items-center gap-2 text-center md:items-start md:text-left">
               <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
                 <span
                   className="bg-clip-text text-transparent drop-shadow-sm"
-                  style={{ backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)` }}
+                  style={{
+                    backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)`,
+                  }}
                 >
                   {PERSON.fullName}
                 </span>
               </h1>
-              <div className="mt-4">
-                <SunriseSunset />
-              </div>
             </div>
-            {PERSON.heroImage ? (
-              <img
-                src={PERSON.heroImage}
-                alt="Memorial hero"
-                className="h-28 w-28 rounded-2xl object-cover shadow md:h-32 md:w-32"
-              />
-            ) : null}
-          </div>
-        )}
-      </div>
-    </header>
-    <main className="mx-auto max-w-5xl px-4 pb-20">{children}</main>
-    <footer className="border-t border-gray-200 bg-white/60 backdrop-blur">
-      <div className="mx-auto max-w-5xl px-4 py-4 text-center text-xs text-gray-500">
-        Built with love. © {new Date().getFullYear()}
-      </div>
-    </footer>
-  </div>
-);
+          )}
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 pb-20">{children}</main>
+
+      <footer className="border-t border-gray-200 bg-white/60 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-4 text-center text-xs text-gray-500">
+          Built with love. © {new Date().getFullYear()}
+        </div>
+      </footer>
+    </div>
+  );
+};
 
 // =====================
 // Screens
@@ -229,14 +195,21 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
       className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md"
     >
       <div className="flex items-center gap-3">
-        <div className="rounded-xl p-2" style={{ backgroundColor: `${BRAND.accent}10` }}>
+        <div
+          className="rounded-xl p-2"
+          style={{ backgroundColor: `${BRAND.accent}10` }}
+        >
           <Icon className="h-6 w-6" style={{ color: BRAND.accent }} />
         </div>
         <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
       </div>
       <p className="mt-3 text-sm text-gray-600">{body}</p>
-      <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium" style={{ color: BRAND.accent }}>
-        {cta} <ExternalLink className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
+      <div
+        className="mt-4 inline-flex items-center gap-2 text-sm font-medium"
+        style={{ color: BRAND.accent }}
+      >
+        {cta}{" "}
+        <ExternalLink className="h-4 w-4 opacity-70 transition group-hover:translate-x-0.5" />
       </div>
     </motion.button>
   );
@@ -269,8 +242,9 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
       <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6">
         <h2 className="text-base font-semibold text-gray-800">About this page</h2>
         <p className="mt-2 text-sm leading-6 text-gray-600">
-          Thank you for being here. This memorial space is a simple way to share photos, view the digital pamphlet,
-          and post your personal tributes. Your presence and words are deeply appreciated by the family.
+          Thank you for being here. This memorial space is a simple way to share
+          photos, view the digital pamphlet, and post your personal tributes.
+          Your presence and words are deeply appreciated by the family.
         </p>
       </section>
     </Shell>
@@ -286,7 +260,8 @@ const Pamphlet = ({ onBack }) => {
           <div className="p-6 text-sm text-yellow-700">
             <p className="font-medium">No PDF URL configured.</p>
             <p className="mt-1">
-              Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public PDF link.
+              Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public
+              PDF link.
             </p>
           </div>
         ) : (
@@ -331,7 +306,8 @@ const Memories = ({ onBack, showToast }) => {
         if (!error && data) setItems(data.map(fmtRow));
       } else {
         try {
-          const local = JSON.parse(localStorage.getItem(storageKey("messages"))) || [];
+          const local =
+            JSON.parse(localStorage.getItem(storageKey("messages"))) || [];
           setItems(local);
         } catch {}
       }
@@ -340,17 +316,23 @@ const Memories = ({ onBack, showToast }) => {
     load();
 
     if (usingSupabase) {
-      // Realtime for INSERT/UPDATE/DELETE
       channel = supabase
         .channel(`messages-${EVENT_ID}`)
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: SUPABASE.table, filter: `event_id=eq.${EVENT_ID}` },
+          {
+            event: "*",
+            schema: "public",
+            table: SUPABASE.table,
+            filter: `event_id=eq.${EVENT_ID}`,
+          },
           (payload) => {
             if (payload.eventType === "INSERT") {
               setItems((prev) => [fmtRow(payload.new), ...prev]);
             } else if (payload.eventType === "UPDATE") {
-              setItems((prev) => prev.map((m) => (m.id === payload.new.id ? fmtRow(payload.new) : m)));
+              setItems((prev) =>
+                prev.map((m) => (m.id === payload.new.id ? fmtRow(payload.new) : m))
+              );
             } else if (payload.eventType === "DELETE") {
               setItems((prev) => prev.filter((m) => m.id !== payload.old.id));
             }
@@ -358,7 +340,6 @@ const Memories = ({ onBack, showToast }) => {
         )
         .subscribe();
     } else {
-      // Cross-tab sync for localStorage fallback
       const onStorage = (e) => {
         if (e.key === storageKey("messages")) {
           try {
@@ -386,7 +367,10 @@ const Memories = ({ onBack, showToast }) => {
     e.preventDefault();
     if (!name.trim() || !message.trim()) return;
 
-    const entry = { name: name.trim().slice(0, 60), text: message.trim().slice(0, 800) };
+    const entry = {
+      name: name.trim().slice(0, 60),
+      text: message.trim().slice(0, 800),
+    };
 
     if (usingSupabase) {
       const { error } = await supabase
@@ -399,7 +383,12 @@ const Memories = ({ onBack, showToast }) => {
       showToast && showToast("Message posted");
     } else {
       const optimistic = [
-        { id: crypto.randomUUID(), name: entry.name, text: entry.text, created_at: new Date().toISOString() },
+        {
+          id: crypto.randomUUID(),
+          name: entry.name,
+          text: entry.text,
+          created_at: new Date().toISOString(),
+        },
         ...items,
       ];
       saveLocal(optimistic);
@@ -414,7 +403,10 @@ const Memories = ({ onBack, showToast }) => {
     }
   };
 
-  const sorted = useMemo(() => [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [items]);
+  const sorted = useMemo(
+    () => [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+    [items]
+  );
 
   return (
     <Shell onBack={onBack}>
@@ -427,14 +419,16 @@ const Memories = ({ onBack, showToast }) => {
         <div className="md:col-span-1">
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold text-gray-800">Share a message</h2>
-            <p className="mt-1 text-sm text-gray-600">Your words of comfort mean so much. Thank you.</p>
+            <p className="mt-1 text-sm text-gray-600">
+              Your words of comfort mean so much. Thank you.
+            </p>
             <form onSubmit={onSubmit} className="mt-4 space-y-3">
               <div>
                 <label className="text-sm text-gray-700">Your name</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Aunt Lindiwe"
+                  placeholder="e.g., Faf De Klerk"
                   className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none"
                   maxLength={60}
                   required
@@ -450,7 +444,9 @@ const Memories = ({ onBack, showToast }) => {
                   maxLength={800}
                   required
                 />
-                <div className="mt-1 text-right text-xs text-gray-500">{message.length}/800</div>
+                <div className="mt-1 text-right text-xs text-gray-500">
+                  {message.length}/800
+                </div>
               </div>
               <button
                 type="submit"
@@ -479,15 +475,21 @@ const Memories = ({ onBack, showToast }) => {
             </div>
             <ul className="divide-y">
               {sorted.length === 0 ? (
-                <li className="p-6 text-sm text-gray-500">No messages yet. Be the first to share.</li>
+                <li className="p-6 text-sm text-gray-500">
+                  No messages yet. Be the first to share.
+                </li>
               ) : (
                 sorted.map((m) => (
                   <li key={m.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <p className="font-medium text-gray-800">{m.name}</p>
-                      <time className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString()}</time>
+                      <time className="text-xs text-gray-500">
+                        {new Date(m.created_at).toLocaleString()}
+                      </time>
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-gray-700">{m.text}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-gray-700">
+                      {m.text}
+                    </p>
                   </li>
                 ))
               )}
@@ -535,7 +537,9 @@ export default function App() {
         />
       )}
       {route === "/pamphlet" && <Pamphlet onBack={goHome} />}
-      {route === "/memories" && <Memories onBack={goHome} showToast={showToast} />}
+      {route === "/memories" && (
+        <Memories onBack={goHome} showToast={showToast} />
+      )}
     </div>
   );
 }
