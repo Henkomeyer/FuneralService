@@ -1,23 +1,22 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import { motion } from "framer-motion";
 import {
   UploadCloud,
   FileText,
-  MessageSquareHeart,
-  ArrowLeft,
-  Trash2,
-  ExternalLink,
-  Sun,
-  Moon,
-  SendHorizontal,
+ MessageSquareHeart,
+ ArrowLeft,
+Trash2,
+ ExternalLink,
+ SendHorizontal,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 /**
  * Funeral Splash App (Vite + React + Tailwind)
  * - Splash with 3 options: Google Photos, PDF Pamphlet, Shared Messages
- * - Animated sunrise/sunset ribbon; robust date parsing; mobile-friendly
+ * - Centered large hero image on Home; animated sunrise/sunset ribbon
  * - Supabase-backed message wall with realtime (fallback to localStorage)
+ * - Toast on successful post; robust date parsing; GH Pages–safe hash routing
  */
 
 // =====================
@@ -110,73 +109,40 @@ const Toast = ({ message }) => (
 // =====================
 const SunriseSunset = () => {
   const sunrise = fmtMemorialDate(PERSON.sunrise);
-  const sunset = fmtMemorialDate(PERSON.sunset);
+  const sunset  = fmtMemorialDate(PERSON.sunset);
+
+  // Prefer env URL; otherwise use local asset in /public
+  const gifSrc =
+    import.meta.env.VITE_RIBBON_GIF_URL ||
+    `${import.meta.env.BASE_URL}Fish.gif`; // BASE_URL handles GitHub Pages base path
+  const alt = import.meta.env.VITE_RIBBON_GIF_ALT || "Memorial banner";
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white/90 p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-gray-700">
-        <span className="inline-flex items-center gap-1">
-          <Sun className="h-4 w-4" style={{ color: BRAND.accent }} /> Sunrise:
-        </span>
-        <span>{sunrise}</span>
-        <span className="hidden h-1 w-1 rounded-full bg-gray-300 sm:inline-block" />
-        <span className="inline-flex items-center gap-1">
-          <Moon className="h-4 w-4" style={{ color: BRAND.accent }} /> Sunset:
-        </span>
-        <span>{sunset}</span>
-      </div>
-
-      <div
-        className="relative h-2 w-full rounded-full sm:h-2"
-        style={{
-          background: `linear-gradient(90deg, ${BRAND.accent}22, ${BRAND.accent}44, ${BRAND.accent}22)`,
-        }}
-      >
-        {/* Sun */}
-        <motion.div
-          aria-hidden
-          className="absolute -top-1 h-4 w-4 rounded-full shadow sm:h-5 sm:w-5"
-          style={{ backgroundColor: BRAND.accent }}
-          animate={{ x: [0, "calc(100% - 1.25rem)", 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white/90">
+      {/* GIF banner */}
+      <figure className="relative aspect-[16/6] w-full sm:aspect-[16/5] md:aspect-[16/4]">
+        <img
+          src={gifSrc}
+          alt={alt}
+          loading="lazy"
+          className="h-full w-full object-cover"
+          style={{ objectPosition: "center 40%" }} // tweak framing if needed
         />
-        {/* Moon (soft, trailing) */}
-        <motion.div
-          aria-hidden
-          className="absolute -top-1 h-4 w-4 rounded-full opacity-30 ring-1 ring-inset ring-black/10 sm:h-5 sm:w-5"
-          style={{ background: "linear-gradient(135deg,#fff,#f2f4f8)" }}
-          animate={{ x: ["10%", "calc(100% - 0.25rem)", "10%"] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
-
-      {/* Desktop-only soft accents */}
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 hidden h-28 w-28 rounded-full sm:block"
-        style={{ backgroundColor: `${BRAND.accent}14` }}
-        animate={{ rotate: [0, 12, 0] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-2 hidden items-center gap-1 sm:flex"
-        initial={{ opacity: 0.0 }}
-        animate={{ opacity: [0.0, 0.4, 0.0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", times: [0.3, 0.7, 1] }}
-      >
-        <span className="h-1 w-1 rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-        <span className="h-1 w-1 rounded-full bg-white/70 shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
-        <span className="h-1 w-1 rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-      </motion.div>
+        {/* Overlay chip with dates */}
+        <figcaption className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur sm:text-xs">
+          <span className="opacity-80">Sunrise:</span> {sunrise}
+          <span className="mx-2 hidden text-gray-300 sm:inline">•</span>
+          <span className="opacity-80">Sunset:</span> {sunset}
+        </figcaption>
+      </figure>
     </div>
   );
 };
 
 // =====================
-// Shell
+// Shell (now supports centered hero header)
 // =====================
-const Shell = ({ children, onBack }) => (
+const Shell = ({ children, onBack, centerHero = false }) => (
   <div className="min-h-screen bg-gray-50 text-gray-900">
     <header className="relative overflow-hidden">
       <div
@@ -185,7 +151,7 @@ const Shell = ({ children, onBack }) => (
           background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`,
         }}
       />
-      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-8 pb-4">
+      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-8 pb-6">
         {onBack ? (
           <button
             onClick={onBack}
@@ -194,9 +160,17 @@ const Shell = ({ children, onBack }) => (
             <ArrowLeft className="h-4 w-4" /> Back
           </button>
         ) : null}
-        <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-end md:justify-between md:text-left">
-          <div className="flex-1">
-            <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
+
+        {centerHero ? (
+          <div className="flex flex-col items-center text-center">
+            {PERSON.heroImage ? (
+              <img
+                src={PERSON.heroImage}
+                alt="Memorial portrait"
+                className="h-40 w-40 rounded-3xl object-cover shadow-lg md:h-56 md:w-56"
+              />
+            ) : null}
+            <h1 className="mt-6 text-4xl font-extrabold tracking-tight md:text-5xl">
               <span
                 className="bg-clip-text text-transparent drop-shadow-sm"
                 style={{ backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)` }}
@@ -204,18 +178,34 @@ const Shell = ({ children, onBack }) => (
                 {PERSON.fullName}
               </span>
             </h1>
-            <div className="mt-4">
+            <div className="mt-4 w-full max-w-xl">
               <SunriseSunset />
             </div>
           </div>
-          {PERSON.heroImage ? (
-            <img
-              src={PERSON.heroImage}
-              alt="Memorial hero"
-              className="h-28 w-28 rounded-2xl object-cover shadow md:h-32 md:w-32"
-            />
-          ) : null}
-        </div>
+        ) : (
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-end md:justify-between md:text-left">
+            <div className="flex-1">
+              <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
+                <span
+                  className="bg-clip-text text-transparent drop-shadow-sm"
+                  style={{ backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)` }}
+                >
+                  {PERSON.fullName}
+                </span>
+              </h1>
+              <div className="mt-4">
+                <SunriseSunset />
+              </div>
+            </div>
+            {PERSON.heroImage ? (
+              <img
+                src={PERSON.heroImage}
+                alt="Memorial hero"
+                className="h-28 w-28 rounded-2xl object-cover shadow md:h-32 md:w-32"
+              />
+            ) : null}
+          </div>
+        )}
       </div>
     </header>
     <main className="mx-auto max-w-5xl px-4 pb-20">{children}</main>
@@ -252,7 +242,7 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
   );
 
   return (
-    <Shell>
+    <Shell centerHero>
       <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
         <Card
           icon={UploadCloud}
