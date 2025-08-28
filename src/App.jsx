@@ -125,13 +125,13 @@ const SunriseSunset = () => {
           src={gifSrc}
           alt={alt}
           loading="lazy"
-          className="h-full w-full object-cover"
+          className=" w-full object-cover"
           style={{ objectPosition: "center 40%" }} // tweak framing if needed
         />
         {/* Overlay chip with dates */}
         <figcaption className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/80 px-3 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur sm:text-xs">
           <span className="opacity-80">Sunrise:</span> {sunrise}
-          <span className="mx-2 hidden text-gray-300 sm:inline">•</span>
+          <span className="mx-2 hidden text-gray-300 sm:inline"> • </span>
           <span className="opacity-80">Sunset:</span> {sunset}
         </figcaption>
       </figure>
