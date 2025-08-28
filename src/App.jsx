@@ -13,19 +13,29 @@ import {
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
+/**
+ * Funeral Splash App (Vite + React + Tailwind)
+ * - Splash with 3 options: Google Photos, PDF Pamphlet, Shared Messages
+ * - Animated sunrise/sunset ribbon; robust date parsing; mobile-friendly
+ * - Supabase-backed message wall with realtime (fallback to localStorage)
+ */
 
+// =====================
+// CONFIG — from .env
+// =====================
 const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo";
 const PERSON = {
   fullName: import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Johnathan M. Dlamini",
   sunrise: import.meta.env.VITE_PERSON_SUNRISE || "1952-03-14",
-  sunset:  import.meta.env.VITE_PERSON_SUNSET  || "2025-08-18",
+  sunset: import.meta.env.VITE_PERSON_SUNSET || "2025-08-18",
   heroImage:
     import.meta.env.VITE_PERSON_PHOTO ||
     "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?q=80&w=1600&auto=format&fit=crop",
 };
 const BRAND = { accent: import.meta.env.VITE_BRAND_ACCENT || "#143427" };
 const LINKS = {
-  GOOGLE_PHOTOS_URL: import.meta.env.VITE_GOOGLE_PHOTOS_URL || "https://photos.app.goo.gl/your-shared-album-link",
+  GOOGLE_PHOTOS_URL:
+    import.meta.env.VITE_GOOGLE_PHOTOS_URL || "https://photos.app.goo.gl/your-shared-album-link",
   PAMPHLET_PDF_URL: import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-public-pdf-link.pdf",
 };
 const SUPABASE = {
@@ -33,7 +43,8 @@ const SUPABASE = {
   anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
   table: import.meta.env.VITE_SUPABASE_TABLE || "messages",
 };
-const supabase = SUPABASE.url && SUPABASE.anonKey ? createClient(SUPABASE.url, SUPABASE.anonKey) : null;
+const supabase =
+  SUPABASE.url && SUPABASE.anonKey ? createClient(SUPABASE.url, SUPABASE.anonKey) : null;
 
 // =====================
 // Utilities
@@ -47,7 +58,9 @@ const useHashRoute = () => {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  const navigate = (path) => { window.location.hash = path; };
+  const navigate = (path) => {
+    window.location.hash = path;
+  };
   return { route, navigate };
 };
 
@@ -62,7 +75,7 @@ const parseMaybeDate = (raw) => {
   if (m) {
     const [, dd, mm, yy] = m;
     const yyyy = yy.length === 2 ? (Number(yy) > 50 ? `19${yy}` : `20${yy}`) : yy;
-    const d2 = new Date(`${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`);
+    const d2 = new Date(`${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`);
     if (!isNaN(d2)) return d2;
   }
   return null;
@@ -75,11 +88,29 @@ const fmtMemorialDate = (raw) => {
 };
 
 // =====================
+// UI: Toast
+// =====================
+const Toast = ({ message }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: message ? 1 : 0, y: message ? 0 : 20 }}
+    transition={{ duration: 0.2 }}
+    className="pointer-events-none fixed inset-x-0 bottom-6 z-[100] flex justify-center"
+  >
+    {message && (
+      <div className="pointer-events-auto rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg">
+        {message}
+      </div>
+    )}
+  </motion.div>
+);
+
+// =====================
 // UI: Sunrise/Sunset ribbon (animated & responsive)
 // =====================
 const SunriseSunset = () => {
   const sunrise = fmtMemorialDate(PERSON.sunrise);
-  const sunset  = fmtMemorialDate(PERSON.sunset);
+  const sunset = fmtMemorialDate(PERSON.sunset);
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white/90 p-3">
@@ -97,23 +128,25 @@ const SunriseSunset = () => {
 
       <div
         className="relative h-2 w-full rounded-full sm:h-2"
-        style={{ background: `linear-gradient(90deg, ${BRAND.accent}22, ${BRAND.accent}44, ${BRAND.accent}22)` }}
+        style={{
+          background: `linear-gradient(90deg, ${BRAND.accent}22, ${BRAND.accent}44, ${BRAND.accent}22)`,
+        }}
       >
         {/* Sun */}
         <motion.div
           aria-hidden
           className="absolute -top-1 h-4 w-4 rounded-full shadow sm:h-5 sm:w-5"
           style={{ backgroundColor: BRAND.accent }}
-          animate={{ x: [0, 'calc(100% - 1.25rem)', 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+          animate={{ x: [0, "calc(100% - 1.25rem)", 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
         {/* Moon (soft, trailing) */}
         <motion.div
           aria-hidden
           className="absolute -top-1 h-4 w-4 rounded-full opacity-30 ring-1 ring-inset ring-black/10 sm:h-5 sm:w-5"
-          style={{ background: 'linear-gradient(135deg,#fff,#f2f4f8)' }}
-          animate={{ x: ['10%', 'calc(100% - 0.25rem)', '10%'] }}
-          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ background: "linear-gradient(135deg,#fff,#f2f4f8)" }}
+          animate={{ x: ["10%", "calc(100% - 0.25rem)", "10%"] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
 
@@ -123,14 +156,14 @@ const SunriseSunset = () => {
         className="pointer-events-none absolute -right-10 -top-10 hidden h-28 w-28 rounded-full sm:block"
         style={{ backgroundColor: `${BRAND.accent}14` }}
         animate={{ rotate: [0, 12, 0] }}
-        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-2 hidden items-center gap-1 sm:flex"
         initial={{ opacity: 0.0 }}
         animate={{ opacity: [0.0, 0.4, 0.0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', times: [0.3, 0.7, 1] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", times: [0.3, 0.7, 1] }}
       >
         <span className="h-1 w-1 rounded-full bg-white/80 shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
         <span className="h-1 w-1 rounded-full bg-white/70 shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
@@ -147,12 +180,12 @@ const Shell = ({ children, onBack }) => (
   <div className="min-h-screen bg-gray-50 text-gray-900">
     <header className="relative overflow-hidden">
       <div
-        className="absolute inset-0 opacity-20"
+        className="absolute inset-0 opacity-20 pointer-events-none"
         style={{
-          background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`
+          background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`,
         }}
       />
-      <div className="mx-auto max-w-5xl px-4 pt-8 pb-4">
+      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-8 pb-4">
         {onBack ? (
           <button
             onClick={onBack}
@@ -171,7 +204,9 @@ const Shell = ({ children, onBack }) => (
                 {PERSON.fullName}
               </span>
             </h1>
-            <div className="mt-4"><SunriseSunset /></div>
+            <div className="mt-4">
+              <SunriseSunset />
+            </div>
           </div>
           {PERSON.heroImage ? (
             <img
@@ -260,7 +295,9 @@ const Pamphlet = ({ onBack }) => {
         {!url || /your-public-pdf-link\.pdf/i.test(url) ? (
           <div className="p-6 text-sm text-yellow-700">
             <p className="font-medium">No PDF URL configured.</p>
-            <p className="mt-1">Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public PDF link.</p>
+            <p className="mt-1">
+              Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public PDF link.
+            </p>
           </div>
         ) : (
           <iframe
@@ -274,45 +311,86 @@ const Pamphlet = ({ onBack }) => {
   );
 };
 
+// Helpers for memories
+const fmtRow = (r) => ({
+  id: r.id,
+  name: r.name,
+  text: r.text,
+  created_at: r.created_at,
+});
+
 // Supabase realtime or localStorage fallback
-const Memories = ({ onBack }) => {
+const Memories = ({ onBack, showToast }) => {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [items, setItems] = useState([]);
   const usingSupabase = !!supabase;
 
   useEffect(() => {
+    let unsubStorage;
+    let channel;
+
     const load = async () => {
       if (usingSupabase) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from(SUPABASE.table)
           .select("id,name,text,created_at")
           .eq("event_id", EVENT_ID)
           .order("created_at", { ascending: false })
           .limit(500);
-        if (data) setItems(data);
+        if (!error && data) setItems(data.map(fmtRow));
       } else {
-        try { setItems(JSON.parse(localStorage.getItem(storageKey("messages"))) || []); } catch {}
+        try {
+          const local = JSON.parse(localStorage.getItem(storageKey("messages"))) || [];
+          setItems(local);
+        } catch {}
       }
     };
+
     load();
 
     if (usingSupabase) {
-      const channel = supabase
+      // Realtime for INSERT/UPDATE/DELETE
+      channel = supabase
         .channel(`messages-${EVENT_ID}`)
-        .on("postgres_changes",
-          { event: "INSERT", schema: "public", table: SUPABASE.table, filter: `event_id=eq.${EVENT_ID}` },
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: SUPABASE.table, filter: `event_id=eq.${EVENT_ID}` },
           (payload) => {
-            const row = payload.new;
-            setItems((prev) => [{ id: row.id, name: row.name, text: row.text, created_at: row.created_at }, ...prev]);
+            if (payload.eventType === "INSERT") {
+              setItems((prev) => [fmtRow(payload.new), ...prev]);
+            } else if (payload.eventType === "UPDATE") {
+              setItems((prev) => prev.map((m) => (m.id === payload.new.id ? fmtRow(payload.new) : m)));
+            } else if (payload.eventType === "DELETE") {
+              setItems((prev) => prev.filter((m) => m.id !== payload.old.id));
+            }
           }
         )
         .subscribe();
-      return () => supabase.removeChannel(channel);
+    } else {
+      // Cross-tab sync for localStorage fallback
+      const onStorage = (e) => {
+        if (e.key === storageKey("messages")) {
+          try {
+            const next = e.newValue ? JSON.parse(e.newValue) : [];
+            setItems(next);
+          } catch {}
+        }
+      };
+      window.addEventListener("storage", onStorage);
+      unsubStorage = () => window.removeEventListener("storage", onStorage);
     }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      if (unsubStorage) unsubStorage();
+    };
   }, [usingSupabase]);
 
-  const saveLocal = (next) => { setItems(next); localStorage.setItem(storageKey("messages"), JSON.stringify(next)); };
+  const saveLocal = (next) => {
+    setItems(next);
+    localStorage.setItem(storageKey("messages"), JSON.stringify(next));
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -321,16 +399,31 @@ const Memories = ({ onBack }) => {
     const entry = { name: name.trim().slice(0, 60), text: message.trim().slice(0, 800) };
 
     if (usingSupabase) {
-      const { error } = await supabase.from(SUPABASE.table).insert({ event_id: EVENT_ID, name: entry.name, text: entry.text });
-      if (error) { alert("Sorry, we couldn't post your message right now. Please try again."); return; }
+      const { error } = await supabase
+        .from(SUPABASE.table)
+        .insert({ event_id: EVENT_ID, name: entry.name, text: entry.text });
+      if (error) {
+        alert("Sorry, we couldn't post your message right now. Please try again.");
+        return;
+      }
+      showToast && showToast("Message posted");
     } else {
-      const optimistic = [{ id: crypto.randomUUID(), name: entry.name, text: entry.text, created_at: new Date().toISOString() }, ...items];
+      const optimistic = [
+        { id: crypto.randomUUID(), name: entry.name, text: entry.text, created_at: new Date().toISOString() },
+        ...items,
+      ];
       saveLocal(optimistic);
+      showToast && showToast("Message posted");
     }
     setMessage("");
   };
 
-  const onClearLocal = () => { if (!usingSupabase && confirm("This clears messages on this device only. Continue?")) saveLocal([]); };
+  const onClearLocal = () => {
+    if (!usingSupabase && confirm("This clears messages on this device only. Continue?")) {
+      saveLocal([]);
+    }
+  };
+
   const sorted = useMemo(() => [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [items]);
 
   return (
@@ -402,9 +495,7 @@ const Memories = ({ onBack }) => {
                   <li key={m.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <p className="font-medium text-gray-800">{m.name}</p>
-                      <time className="text-xs text-gray-500">
-                        {new Date(m.created_at).toLocaleString()}
-                      </time>
+                      <time className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString()}</time>
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-gray-700">{m.text}</p>
                   </li>
@@ -424,6 +515,16 @@ const Memories = ({ onBack }) => {
 export default function App() {
   const { route, navigate } = useHashRoute();
   const goHome = () => navigate("/");
+
+  // Toast state
+  const [toast, setToast] = React.useState("");
+  const toastTimer = React.useRef(null);
+  const showToast = (msg) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 2400);
+  };
+
   const openPhotos = () => {
     const url = LINKS.GOOGLE_PHOTOS_URL;
     if (!url || /photos\.app\.goo\.gl\/your-shared-album-link/i.test(url)) {
@@ -435,6 +536,7 @@ export default function App() {
 
   return (
     <div className="font-sans">
+      <Toast message={toast} />
       {route === "/" && (
         <Home
           onOpenPhotos={openPhotos}
@@ -443,7 +545,7 @@ export default function App() {
         />
       )}
       {route === "/pamphlet" && <Pamphlet onBack={goHome} />}
-      {route === "/memories" && <Memories onBack={goHome} />}
+      {route === "/memories" && <Memories onBack={goHome} showToast={showToast} />}
     </div>
   );
 }
