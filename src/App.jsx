@@ -333,7 +333,7 @@ const Memories = ({ onBack, showToast }) => {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Aunt Lindiwe"
+                  placeholder="e.g., Danel Potgieter"
                   className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none"
                   maxLength={60}
                   required
