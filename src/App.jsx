@@ -200,7 +200,7 @@ const Pamphlet = ({ onBack }) => {
   );
 };
 
-// Helpers for memories
+
 const fmtRow = (r) => ({ id: r.id, name: r.name, text: r.text, created_at: r.created_at });
 
 // Supabase realtime or localStorage fallback
