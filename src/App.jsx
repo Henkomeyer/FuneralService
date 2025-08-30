@@ -24,7 +24,7 @@ const BRAND = { accent: import.meta.env.VITE_BRAND_ACCENT || "#143427" };
 const LINKS = {
   GOOGLE_PHOTOS_URL:
     import.meta.env.VITE_GOOGLE_PHOTOS_URL ||
-    "https://photos.app.goo.gl/your-shared-album-link",
+    "https://photos.app.goo.gl/bXKe8DRe1xDDM5Tn6",
   PAMPHLET_PDF_URL:
     import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-public-pdf-link.pdf",
 };
