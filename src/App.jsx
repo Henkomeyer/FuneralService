@@ -11,24 +11,12 @@ import {
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-/**
- * Funeral Splash App (Vite + React + Tailwind)
- * - Home: hero background image with title & dates, 3 action cards below
- * - Pamphlet & Messages pages keep compact header
- * - Supabase realtime (fallback to localStorage)
- * - Toast on successful post; GH Pages–safe hash routing
- */
 
-// =====================
-// CONFIG — from .env
-// =====================
 const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo";
 const PERSON = {
   fullName:
-    import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Johnathan M. Dlamini",
-  sunrise: import.meta.env.VITE_PERSON_SUNRISE || "1952-03-14",
-  sunset: import.meta.env.VITE_PERSON_SUNSET || "2025-08-18",
-  // Use env override, else local /public/Ruan.jpg (BASE_URL keeps GH Pages path correct)
+    import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Ruan Potgieter",
+  // page background image
   heroImage:
     import.meta.env.VITE_PERSON_PHOTO || `${import.meta.env.BASE_URL}Ruan.jpg`,
 };
@@ -66,33 +54,7 @@ const useHashRoute = () => {
 
 const storageKey = (suffix) => `${EVENT_ID}:${suffix}`;
 
-const parseMaybeDate = (raw) => {
-  if (!raw) return null;
-  const d1 = new Date(raw);
-  if (!isNaN(d1)) return d1;
-  const m = String(raw).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-  if (m) {
-    const [, dd, mm, yy] = m;
-    const yyyy = yy.length === 2 ? (Number(yy) > 50 ? `19${yy}` : `20${yy}`) : yy;
-    const d2 = new Date(`${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`);
-    if (!isNaN(d2)) return d2;
-  }
-  return null;
-};
-const fmtMemorialDate = (raw) => {
-  const d = parseMaybeDate(raw);
-  return d
-    ? d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "—";
-};
 
-// =====================
-// UI: Toast
-// =====================
 const Toast = ({ message }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -108,80 +70,50 @@ const Toast = ({ message }) => (
   </motion.div>
 );
 
-// =====================
-// Shell (supports centered hero)
-// =====================
-const Shell = ({ children, onBack, centerHero = false }) => {
-  const sunrise = fmtMemorialDate(PERSON.sunrise);
-  const sunset = fmtMemorialDate(PERSON.sunset);
 
-  return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none"
-          style={{
-            background: `radial-gradient(1200px 600px at -10% -10%, ${BRAND.accent}10, transparent), radial-gradient(1200px 600px at 110% 110%, ${BRAND.accent}10, transparent)`,
-          }}
-        />
-        {/* widened header container */}
-        <div className="relative z-10 mx-auto max-w-6xl px-4 pt-8 pb-6">
-          {onBack ? (
-            <button
-              onClick={onBack}
-              className="mb-6 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+const Shell = ({ children, onBack, centerHero = false }) => (
+  <div
+    className="relative min-h-screen bg-fixed bg-cover bg-top text-gray-900"
+    style={{ backgroundImage: `url(${PERSON.heroImage})` }}
+  >
+    {/* Soft overlay to keep content readable over photo */}
+    <div className="pointer-events-none absolute inset-0 bg-white/65" />
+
+    <div className="relative z-10">
+      <header className="mx-auto max-w-6xl px-4 pt-8 pb-4">
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="mb-6 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        ) : null}
+
+        <div className={centerHero ? "text-center" : "text-left"}>
+          <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">
+            <span
+              className="bg-clip-text text-transparent drop-shadow-sm"
+              style={{
+                backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)`,
+              }}
             >
-              <ArrowLeft className="h-4 w-4" /> Back
-            </button>
-          ) : null}
-
-          {centerHero ? (
-            // Hero: background image with overlay + centered content
-            <div className="relative overflow-hidden rounded-3xl shadow-lg">
-              <div
-                className="h-[220px] w-full bg-cover bg-top sm:h-[260px] md:h-[620px]"
-                style={{ backgroundImage: `url(${PERSON.heroImage})` }}
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/40" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-                <h1 className="text-4xl font-extrabold tracking-tight text-white drop-shadow md:text-5xl">
-                  {PERSON.fullName}
-                </h1>
-                <div className="mt-3 rounded-full bg-white/85 px-3 py-1 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur sm:text-xs">
-                  <span className="opacity-80">Sunrise:</span> {sunrise}
-                  <span className="mx-2 hidden text-gray-300 sm:inline">•</span>
-                  <span className="opacity-80">Sunset:</span> {sunset}
-                </div>
-              </div>
-            </div>
-          ) : (
-            // Compact header used on inner pages
-            <div className="flex flex-col items-center gap-2 text-center md:items-start md:text-left">
-              <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-                <span
-                  className="bg-clip-text text-transparent drop-shadow-sm"
-                  style={{
-                    backgroundImage: `linear-gradient(90deg, ${BRAND.accent}, #0f172a)`,
-                  }}
-                >
-                  {PERSON.fullName}
-                </span>
-              </h1>
-            </div>
-          )}
+              {PERSON.fullName}
+            </span>
+          </h1>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pb-20">{children}</main>
 
-      <footer className="border-t border-gray-200 bg-white/60 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 py-4 text-center text-xs text-gray-500">
+      {/* <footer className="border-t border-gray-200 bg-white/70 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-4 text-center text-xs text-gray-600">
           Built with love. © {new Date().getFullYear()}
         </div>
-      </footer>
+      </footer> */}
     </div>
-  );
-};
+  </div>
+);
 
 // =====================
 // Screens
@@ -192,7 +124,7 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md"
+      className="group flex flex-col rounded-2xl border border-gray-200 bg-white/35 p-6 text-left shadow-sm transition hover:shadow-md"
     >
       <div className="flex items-center gap-3">
         <div
@@ -216,6 +148,7 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
 
   return (
     <Shell centerHero>
+      {/* Exactly 3 cards under the title */}
       <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
         <Card
           icon={UploadCloud}
@@ -239,14 +172,6 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
           onClick={onOpenMemories}
         />
       </section>
-      <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="text-base font-semibold text-gray-800">About this page</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-600">
-          Thank you for being here. This memorial space is a simple way to share
-          photos, view the digital pamphlet, and post your personal tributes.
-          Your presence and words are deeply appreciated by the family.
-        </p>
-      </section>
     </Shell>
   );
 };
@@ -260,8 +185,7 @@ const Pamphlet = ({ onBack }) => {
           <div className="p-6 text-sm text-yellow-700">
             <p className="font-medium">No PDF URL configured.</p>
             <p className="mt-1">
-              Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public
-              PDF link.
+              Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public PDF link.
             </p>
           </div>
         ) : (
@@ -277,12 +201,7 @@ const Pamphlet = ({ onBack }) => {
 };
 
 // Helpers for memories
-const fmtRow = (r) => ({
-  id: r.id,
-  name: r.name,
-  text: r.text,
-  created_at: r.created_at,
-});
+const fmtRow = (r) => ({ id: r.id, name: r.name, text: r.text, created_at: r.created_at });
 
 // Supabase realtime or localStorage fallback
 const Memories = ({ onBack, showToast }) => {
@@ -306,8 +225,7 @@ const Memories = ({ onBack, showToast }) => {
         if (!error && data) setItems(data.map(fmtRow));
       } else {
         try {
-          const local =
-            JSON.parse(localStorage.getItem(storageKey("messages"))) || [];
+          const local = JSON.parse(localStorage.getItem(storageKey("messages"))) || [];
           setItems(local);
         } catch {}
       }
@@ -330,9 +248,7 @@ const Memories = ({ onBack, showToast }) => {
             if (payload.eventType === "INSERT") {
               setItems((prev) => [fmtRow(payload.new), ...prev]);
             } else if (payload.eventType === "UPDATE") {
-              setItems((prev) =>
-                prev.map((m) => (m.id === payload.new.id ? fmtRow(payload.new) : m))
-              );
+              setItems((prev) => prev.map((m) => (m.id === payload.new.id ? fmtRow(payload.new) : m)));
             } else if (payload.eventType === "DELETE") {
               setItems((prev) => prev.filter((m) => m.id !== payload.old.id));
             }
@@ -367,10 +283,7 @@ const Memories = ({ onBack, showToast }) => {
     e.preventDefault();
     if (!name.trim() || !message.trim()) return;
 
-    const entry = {
-      name: name.trim().slice(0, 60),
-      text: message.trim().slice(0, 800),
-    };
+    const entry = { name: name.trim().slice(0, 60), text: message.trim().slice(0, 800) };
 
     if (usingSupabase) {
       const { error } = await supabase
@@ -383,12 +296,7 @@ const Memories = ({ onBack, showToast }) => {
       showToast && showToast("Message posted");
     } else {
       const optimistic = [
-        {
-          id: crypto.randomUUID(),
-          name: entry.name,
-          text: entry.text,
-          created_at: new Date().toISOString(),
-        },
+        { id: crypto.randomUUID(), name: entry.name, text: entry.text, created_at: new Date().toISOString() },
         ...items,
       ];
       saveLocal(optimistic);
@@ -403,10 +311,7 @@ const Memories = ({ onBack, showToast }) => {
     }
   };
 
-  const sorted = useMemo(
-    () => [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
-    [items]
-  );
+  const sorted = useMemo(() => [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [items]);
 
   return (
     <Shell onBack={onBack}>
@@ -428,7 +333,7 @@ const Memories = ({ onBack, showToast }) => {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Faf De Klerk"
+                  placeholder="e.g., Aunt Lindiwe"
                   className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 focus:border-gray-400 focus:outline-none"
                   maxLength={60}
                   required
@@ -444,9 +349,7 @@ const Memories = ({ onBack, showToast }) => {
                   maxLength={800}
                   required
                 />
-                <div className="mt-1 text-right text-xs text-gray-500">
-                  {message.length}/800
-                </div>
+                <div className="mt-1 text-right text-xs text-gray-500">{message.length}/800</div>
               </div>
               <button
                 type="submit"
@@ -475,21 +378,15 @@ const Memories = ({ onBack, showToast }) => {
             </div>
             <ul className="divide-y">
               {sorted.length === 0 ? (
-                <li className="p-6 text-sm text-gray-500">
-                  No messages yet. Be the first to share.
-                </li>
+                <li className="p-6 text-sm text-gray-500">No messages yet. Be the first to share.</li>
               ) : (
                 sorted.map((m) => (
                   <li key={m.id} className="p-4">
                     <div className="flex items-start justify-between">
                       <p className="font-medium text-gray-800">{m.name}</p>
-                      <time className="text-xs text-gray-500">
-                        {new Date(m.created_at).toLocaleString()}
-                      </time>
+                      <time className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString()}</time>
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-gray-700">
-                      {m.text}
-                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-gray-700">{m.text}</p>
                   </li>
                 ))
               )}
@@ -508,7 +405,6 @@ export default function App() {
   const { route, navigate } = useHashRoute();
   const goHome = () => navigate("/");
 
-  // Toast state
   const [toast, setToast] = React.useState("");
   const toastTimer = React.useRef(null);
   const showToast = (msg) => {
@@ -537,9 +433,7 @@ export default function App() {
         />
       )}
       {route === "/pamphlet" && <Pamphlet onBack={goHome} />}
-      {route === "/memories" && (
-        <Memories onBack={goHome} showToast={showToast} />
-      )}
+      {route === "/memories" && <Memories onBack={goHome} showToast={showToast} />}
     </div>
   );
 }
