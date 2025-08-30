@@ -18,7 +18,7 @@ const PERSON = {
     import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Ruan Potgieter",
   // page background image
   heroImage:
-    import.meta.env.VITE_PERSON_PHOTO || `${import.meta.env.BASE_URL}Ruan.jpg`,
+    import.meta.env.VITE_PERSON_PHOTO || `${import.meta.env.BASE_URL}public/Ruan.jpg`,
 };
 const BRAND = { accent: import.meta.env.VITE_BRAND_ACCENT || "#143427" };
 const LINKS = {
@@ -415,7 +415,8 @@ export default function App() {
 
   const openPhotos = () => {
     const url = LINKS.GOOGLE_PHOTOS_URL;
-    if (!url || /photos\.app\.goo\.gl\/your-shared-album-link/i.test(url)) {
+    
+    if (!url || !/https:\/\/photos\.app\.goo\.gl\/bXKe8DRe1xDDM5Tn6/i.test(url)) {
       alert("No Google Photos link configured yet. Please set VITE_GOOGLE_PHOTOS_URL.");
       return;
     }
