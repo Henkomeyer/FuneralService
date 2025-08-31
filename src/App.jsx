@@ -19,7 +19,7 @@ const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo";
 const PERSON = {
   fullName:
     import.meta.env.VITE_PERSON_NAME || "In Loving Memory of Ruan Potgieter",
-  // page background image
+  // page background image fsf
   heroImage:
     import.meta.env.VITE_PERSON_PHOTO || `${import.meta.env.BASE_URL}public/Ruan.jpg`,
 };
