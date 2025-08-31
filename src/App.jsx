@@ -10,7 +10,9 @@ import {
   SendHorizontal,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
-
+import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+GlobalWorkerOptions.workerSrc = workerUrl;
 const LOCAL_PDF_NAME = import.meta.env.VITE_LOCAL_PDF_NAME || "Ruan.pdf";
 const LOCAL_PDF_URL = `${import.meta.env.BASE_URL}${encodeURIComponent(LOCAL_PDF_NAME)}`;
 
@@ -74,6 +76,84 @@ const Toast = ({ message }) => (
 );
 
 
+
+const MobilePdf = ({ url }) => {
+  const [pages, setPages] = React.useState([]);  // array of data URLs
+  const [loading, setLoading] = React.useState(true);
+  const [err, setErr] = React.useState("");
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        setErr("");
+        const pdf = await getDocument({ url, withCredentials: false }).promise;
+
+        // Render each page to a canvas -> dataURL (progressively)
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const p = await pdf.getPage(i);
+          // render ~900px wide for good clarity but small size
+          const initial = p.getViewport({ scale: 1 });
+          const scale = Math.min(2, 900 / initial.width);
+          const viewport = p.getViewport({ scale });
+
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d", { alpha: false });
+
+          await p.render({ canvasContext: ctx, viewport }).promise;
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+          if (!cancelled) {
+            setPages(prev => [...prev, dataUrl]);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setErr("Unable to display the pamphlet on this device.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (err) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        {err} <a className="underline" href={url} target="_blank" rel="noreferrer">Open the original PDF</a>.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white/80 backdrop-blur p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm text-gray-600">{pages.length ? `${pages.length} pages` : "Loading…"}</span>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          Open original PDF
+        </a>
+      </div>
+      <div className="space-y-3">
+        {pages.map((src, i) => (
+          <img key={i} src={src} alt={`Page ${i + 1}`} className="w-full rounded-md shadow-sm" />
+        ))}
+        {loading && pages.length === 0 && (
+          <div className="rounded-md bg-gray-50 p-6 text-center text-sm text-gray-600">Rendering pages…</div>
+        )}
+      </div>
+    </div>
+  );
+};
 const Shell = ({ children, onBack, centerHero = false }) => (
   <div
     className="relative min-h-screen bg-fixed bg-cover bg-top text-gray-900"
@@ -179,40 +259,57 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
   );
 };
 
+
 const validHttp = (s) =>
   typeof s === "string" &&
   /^https?:\/\//i.test(s) &&
   !/your|example|cdn|drive-link/i.test(s);
 
 const Pamphlet = ({ onBack }) => {
-  // prefer the local file; fall back to env ONLY if it’s a real URL
+  // prefer local file; use env only if it’s a real http(s) URL
   const envUrl = import.meta.env.VITE_PAMPHLET_PDF_URL;
   const url = validHttp(envUrl) ? envUrl : LOCAL_PDF_URL;
 
+  // small screens: render as images; large screens: keep iframe
+  const [isSmall, setIsSmall] = React.useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : true
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = () => setIsSmall(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   return (
     <Shell onBack={onBack}>
-      <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
+      <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-gray-800">Digital Pamphlet</h2>
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50"
+            className="rounded-lg border border-gray-200 bg-white/80 px-3 py-1.5 text-sm hover:bg-white"
           >
             Open in new tab
           </a>
         </div>
 
-        <iframe
-          title="Memorial Pamphlet"
-          src={`${url}#view=FitH&scrollbar=1&toolbar=1`}
-          className="h-[78vh] w-full rounded-xl border"
-        />
+        {isSmall ? (
+          <MobilePdf url={url} />
+        ) : (
+          <iframe
+            title="Memorial Pamphlet"
+            src={`${url}#view=FitH&scrollbar=1&toolbar=1`}
+            className="h-[78vh] w-full rounded-xl border bg-white"
+          />
+        )}
       </section>
     </Shell>
   );
 };
+
 
 
 const fmtRow = (r) => ({ id: r.id, name: r.name, text: r.text, created_at: r.created_at });
