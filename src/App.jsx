@@ -39,9 +39,9 @@ const SUPABASE = {
 const supabase =
   SUPABASE.url && SUPABASE.anonKey ? createClient(SUPABASE.url, SUPABASE.anonKey) : null;
 
-// =====================
+// =====================s
 // Utilities
-// =====================
+// =====================dasd
 const useHashRoute = () => {
   const [route, setRoute] = useState(
     () => window.location.hash.replace("#", "") || "/"
@@ -57,7 +57,7 @@ const useHashRoute = () => {
 
 const storageKey = (suffix) => `${EVENT_ID}:${suffix}`;
 
-
+const henko = "henko";
 const Toast = ({ message }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
