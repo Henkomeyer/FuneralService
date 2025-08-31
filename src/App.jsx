@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
+const LOCAL_PDF_NAME = import.meta.env.VITE_LOCAL_PDF_NAME || "Ruan.pdf";
+const LOCAL_PDF_URL = `${import.meta.env.BASE_URL}${encodeURIComponent(LOCAL_PDF_NAME)}`;
 
+const LOCAL_PDF = `${import.meta.env.BASE_URL}${encodeURIComponent("public/Ruan.pdf")}`;
 const EVENT_ID = import.meta.env.VITE_EVENT_ID || "memorial-2025-demo";
 const PERSON = {
   fullName:
@@ -26,7 +29,7 @@ const LINKS = {
     import.meta.env.VITE_GOOGLE_PHOTOS_URL ||
     "https://photos.app.goo.gl/bXKe8DRe1xDDM5Tn6",
   PAMPHLET_PDF_URL:
-    import.meta.env.VITE_PAMPHLET_PDF_URL || "https://your-public-pdf-link.pdf",
+    import.meta.env.VITE_PAMPHLET_PDF_URL || "/public/Ruan.pdf",
 };
 const SUPABASE = {
   url: import.meta.env.VITE_SUPABASE_URL || "",
@@ -176,25 +179,36 @@ const Home = ({ onOpenPhotos, onOpenPamphlet, onOpenMemories }) => {
   );
 };
 
+const validHttp = (s) =>
+  typeof s === "string" &&
+  /^https?:\/\//i.test(s) &&
+  !/your|example|cdn|drive-link/i.test(s);
+
 const Pamphlet = ({ onBack }) => {
-  const url = LINKS.PAMPHLET_PDF_URL;
+  // prefer the local file; fall back to env ONLY if it’s a real URL
+  const envUrl = import.meta.env.VITE_PAMPHLET_PDF_URL;
+  const url = validHttp(envUrl) ? envUrl : LOCAL_PDF_URL;
+
   return (
     <Shell onBack={onBack}>
       <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-4">
-        {!url || /your-public-pdf-link\.pdf/i.test(url) ? (
-          <div className="p-6 text-sm text-yellow-700">
-            <p className="font-medium">No PDF URL configured.</p>
-            <p className="mt-1">
-              Please set <code>VITE_PAMPHLET_PDF_URL</code> to a valid public PDF link.
-            </p>
-          </div>
-        ) : (
-          <iframe
-            title="Memorial Pamphlet"
-            src={`${url}#view=FitH&scrollbar=1&toolbar=1`}
-            className="h-[78vh] w-full rounded-xl border"
-          />
-        )}
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-800">Digital Pamphlet</h2>
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            Open in new tab
+          </a>
+        </div>
+
+        <iframe
+          title="Memorial Pamphlet"
+          src={`${url}#view=FitH&scrollbar=1&toolbar=1`}
+          className="h-[78vh] w-full rounded-xl border"
+        />
       </section>
     </Shell>
   );
